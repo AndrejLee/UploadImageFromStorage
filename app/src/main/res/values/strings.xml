@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">TestRecyclerView</string>
+    <string name="pick_image_intent_text">image intent</string>
+</resources>
