@@ -2,10 +2,14 @@ package com.example.cpu10152_local.testrecyclerview;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
+import android.media.Image;
 import android.os.AsyncTask;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
@@ -16,6 +20,7 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
+import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
@@ -27,6 +32,13 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import static android.Manifest.permission.ACCESS_NETWORK_STATE;
+import static android.Manifest.permission.INTERNET;
+import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
+import static android.Manifest.permission.SYSTEM_ALERT_WINDOW;
+import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
+import static android.Manifest.permission.CAMERA;
+
 public class MainActivity extends AppCompatActivity {
 
     private static final int PICK_IMAGE_ID = 100;
@@ -35,6 +47,7 @@ public class MainActivity extends AppCompatActivity {
     List<Movie> movies;
     MyAdapter adapter;
     RelativeLayout progressBar;
+    private final int RequestPermissionCode = 96;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -119,28 +132,68 @@ public class MainActivity extends AppCompatActivity {
                     }.execute(bitmap);
                 }
 
-//                Log.d(TAG, "Begin encoding!");
-//                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-//                bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream);
-//                byte[] byteArray = byteArrayOutputStream .toByteArray();
-//
-//                String encoded = Base64.encodeToString(byteArray, Base64.DEFAULT);
-//
-//                byte[] decodedBytes = Base64.decode(encoded, 0);
-//                Bitmap decodedBitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length);
-//
-//                // TODO use bitmap
-//
-//                Glide.with(this)
-//                        .load(decodedBitmap)
-//                        .apply(RequestOptions.circleCropTransform())
-//                        .into((ImageView) findViewById(R.id.background));
-//                Log.d(TAG, "Finish decoding");
                 break;
             default:
                 super.onActivityResult(requestCode, resultCode, data);
                 break;
         }
+    }
+
+    private void RequestMultiplePermission() {
+
+        // Creating String Array with Permissions.
+        ActivityCompat.requestPermissions(MainActivity.this, new String[]
+                {
+                        CAMERA,
+                        WRITE_EXTERNAL_STORAGE,
+                        READ_EXTERNAL_STORAGE,
+                        ACCESS_NETWORK_STATE,
+                        INTERNET
+                }, RequestPermissionCode);
+
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+        switch (requestCode) {
+
+            case RequestPermissionCode:
+
+                if (grantResults.length > 0) {
+
+                    boolean CameraPermission = grantResults[0] == PackageManager.PERMISSION_GRANTED;
+                    boolean WriteStoragePermission = grantResults[1] == PackageManager.PERMISSION_GRANTED;
+                    boolean ReadStoragePermission = grantResults[2] == PackageManager.PERMISSION_GRANTED;
+                    boolean AccessNetworkPermission = grantResults[3] == PackageManager.PERMISSION_GRANTED;
+                    boolean InternetPermission = grantResults[4] == PackageManager.PERMISSION_GRANTED;
+
+                    if (CameraPermission && WriteStoragePermission && ReadStoragePermission && AccessNetworkPermission && InternetPermission) {
+
+                        Toast.makeText(MainActivity.this, "Permission Granted", Toast.LENGTH_LONG).show();
+                    }
+                    else {
+                        Toast.makeText(MainActivity.this,"Permission Denied",Toast.LENGTH_LONG).show();
+
+                    }
+                }
+
+                break;
+        }
+    }
+
+    public boolean CheckingPermissionIsEnabledOrNot() {
+
+        int FirstPermissionResult = ContextCompat.checkSelfPermission(getApplicationContext(), CAMERA);
+        int SecondPermissionResult = ContextCompat.checkSelfPermission(getApplicationContext(), WRITE_EXTERNAL_STORAGE);
+        int ThirdPermissionResult = ContextCompat.checkSelfPermission(getApplicationContext(), READ_EXTERNAL_STORAGE);
+        int ForthPermissionResult = ContextCompat.checkSelfPermission(getApplicationContext(), ACCESS_NETWORK_STATE);
+        int FifthPermissionResult = ContextCompat.checkSelfPermission(getApplicationContext(), INTERNET);
+
+        return FirstPermissionResult == PackageManager.PERMISSION_GRANTED &&
+                SecondPermissionResult == PackageManager.PERMISSION_GRANTED &&
+                ThirdPermissionResult == PackageManager.PERMISSION_GRANTED &&
+                ForthPermissionResult == PackageManager.PERMISSION_GRANTED &&
+                FifthPermissionResult == PackageManager.PERMISSION_GRANTED;
     }
 
     private void initMovies() {
