@@ -28,9 +28,13 @@ import com.example.cpu10152_local.testrecyclerview.adapter.MyAdapter;
 import com.example.cpu10152_local.testrecyclerview.entity.Movie;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static android.Manifest.permission.ACCESS_NETWORK_STATE;
 import static android.Manifest.permission.INTERNET;
@@ -48,6 +52,7 @@ public class MainActivity extends AppCompatActivity {
     MyAdapter adapter;
     RelativeLayout progressBar;
     private final int RequestPermissionCode = 96;
+    private Bitmap bitmap;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,12 +73,19 @@ public class MainActivity extends AppCompatActivity {
 //
 //        adapter.setMovies(movies);
 
+        RequestMultiplePermission();
+
         progressBar = findViewById(R.id.progress);
 
         findViewById(R.id.btn_pick).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent chooseImageIntent = DialogPicker.getPickImageIntent(MainActivity.this);
+                Intent chooseImageIntent = null;
+                try {
+                    chooseImageIntent = DialogPicker.getPickImageIntent(MainActivity.this);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
                 startActivityForResult(chooseImageIntent, PICK_IMAGE_ID);
             }
         });
@@ -84,7 +96,12 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch(requestCode) {
             case PICK_IMAGE_ID:
-                final Bitmap bitmap = DialogPicker.getImageFromResult(this, resultCode, data);
+                bitmap = null;
+                try {
+                    bitmap = DialogPicker.getImageFromResult(this, resultCode, data);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
 
                 if (bitmap != null) {
                     new AsyncTask<Bitmap, Void, String>() {
@@ -127,11 +144,11 @@ public class MainActivity extends AppCompatActivity {
                                     progressBar.setVisibility(View.GONE);
                                 }
                             }.execute(s);
-
                         }
                     }.execute(bitmap);
+                } else {
+                    DialogPicker.deleteTempImage();
                 }
-
                 break;
             default:
                 super.onActivityResult(requestCode, resultCode, data);
@@ -231,5 +248,9 @@ public class MainActivity extends AppCompatActivity {
         movies.add(new Movie("How to train your dragon",
                 "A hapless young Viking who aspires to hunt dragons becomes the unlikely friend of a young dragon himself, and learns there may be more to the creatures than he assumed. ",
                 "http://cdn.shopify.com/s/files/1/0799/0083/products/Various_HowToTr_CoverAr_3000DPI300RGB1000144210_grande.jpg?v=1460676017"));
+    }
+
+    public void finalize(){
+
     }
 }

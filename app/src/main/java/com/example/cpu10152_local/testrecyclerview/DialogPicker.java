@@ -1,5 +1,6 @@
 package com.example.cpu10152_local.testrecyclerview;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -9,20 +10,22 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
-import android.hardware.camera2.CameraCharacteristics;
-import android.hardware.camera2.CameraManager;
 import android.media.ExifInterface;
 import android.net.Uri;
+import android.os.AsyncTask;
+import android.os.Environment;
 import android.os.Parcelable;
 import android.provider.MediaStore;
+import android.support.v4.content.FileProvider;
 import android.util.Log;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
-
-import static android.content.Context.CAMERA_SERVICE;
 
 /**
  * Created by cpu10152-local on 04/04/2018.
@@ -31,12 +34,14 @@ import static android.content.Context.CAMERA_SERVICE;
 public class DialogPicker {
     private static final int DEFAULT_MIN_WIDTH_QUALITY = 400;        // min pixels
     private static final String TAG = "ImagePicker";
-    private static final String TEMP_IMAGE_NAME = "tempImage";
 
     public static int minWidthQuality = DEFAULT_MIN_WIDTH_QUALITY;
 
+    private static String mCurrentPhotoPath;
+    private static Uri mCurrentImageUri;
 
-    public static Intent getPickImageIntent(Context context) {
+
+    public static Intent getPickImageIntent(Context context) throws IOException {
         Intent chooserIntent = null;
 
         List<Intent> intentList = new ArrayList<>();
@@ -45,7 +50,10 @@ public class DialogPicker {
                 android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
         Intent takePhotoIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         takePhotoIntent.putExtra("return-data", true);
-        takePhotoIntent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(getTempFile(context)));
+        mCurrentImageUri = FileProvider.getUriForFile(context,
+                "com.example.android.fileprovider",
+                createImageFile());
+        takePhotoIntent.putExtra(MediaStore.EXTRA_OUTPUT, mCurrentImageUri);
         intentList = addIntentsToList(context, intentList, pickIntent);
         intentList = addIntentsToList(context, intentList, takePhotoIntent);
 
@@ -56,6 +64,51 @@ public class DialogPicker {
         }
 
         return chooserIntent;
+    }
+
+    private static void galleryAddPic(Context context) throws FileNotFoundException {
+        Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+        File f = new File(mCurrentPhotoPath);
+        Uri contentUri = Uri.fromFile(f);
+        mediaScanIntent.setData(contentUri);
+        context.sendBroadcast(mediaScanIntent);
+    }
+
+    @SuppressLint("StaticFieldLeak")
+    public static void deleteTempImage() {
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... voids) {
+                File fdelete = new File(mCurrentPhotoPath);
+                if (fdelete.exists()) {
+                    if (fdelete.delete()) {
+                        Log.d(TAG,"file Deleted :" + mCurrentPhotoPath);
+                    } else {
+                        Log.d(TAG,"file not Deleted :" + mCurrentPhotoPath);
+                    }
+                }
+                return null;
+            }
+        }.execute();
+    }
+
+    private static File createImageFile() throws IOException {
+        // Create an image file name
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String imageFileName = "visd_" + timeStamp + "_";
+        File storageDir = new File(Environment
+                .getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM) + "/Camera/");
+        if (!storageDir.exists())
+            storageDir.mkdirs();
+        File image = File.createTempFile(
+                imageFileName,  /* prefix */
+                ".jpg",         /* suffix */
+                storageDir      /* directory */
+        );
+
+        // Save a file: path for use with ACTION_VIEW intents
+        mCurrentPhotoPath = image.getAbsolutePath();
+        return image;
     }
 
     private static List<Intent> addIntentsToList(Context context, List<Intent> list, Intent intent) {
@@ -70,39 +123,29 @@ public class DialogPicker {
         return list;
     }
 
-
-    public static Bitmap getImageFromResult(Context context, int resultCode,
-                                            Intent imageReturnedIntent) {
+    @SuppressLint("StaticFieldLeak")
+    public static Bitmap getImageFromResult(final Context context, int resultCode,
+                                            Intent imageReturnedIntent) throws IOException {
         Log.d(TAG, "getImageFromResult, resultCode: " + resultCode);
         Bitmap bm = null;
-        File imageFile = getTempFile(context);
         if (resultCode == Activity.RESULT_OK) {
             Uri selectedImage;
             boolean isCamera = (imageReturnedIntent == null ||
                     imageReturnedIntent.getData() == null ||
-                    imageReturnedIntent.getData().toString().contains(imageFile.toString()));
+                    imageReturnedIntent.getData().toString().contains(mCurrentImageUri.toString()));
             if (isCamera) {     /** CAMERA **/
-                selectedImage = Uri.fromFile(imageFile);
+                selectedImage = mCurrentImageUri;
+                galleryAddPic(context);
             } else {            /** ALBUM **/
                 selectedImage = imageReturnedIntent.getData();
+                deleteTempImage();
             }
-            Log.d(TAG, "selectedImage: " + selectedImage);
+            Log.d(TAG, "selectedImag" +
+                    "e: " + selectedImage);
 
             bm = getImageResized(context, selectedImage);
-            //int rotation = getRotation(context, selectedImage, isCamera);
-            //bm = rotate(bm, rotation);
-//            Matrix matrix = new Matrix();
-//            matrix.preScale(-1.0f, 1.0f);
-//            bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
         }
         return bm;
-    }
-
-
-    private static File getTempFile(Context context) {
-        File imageFile = new File(context.getExternalCacheDir(), TEMP_IMAGE_NAME);
-        imageFile.getParentFile().mkdirs();
-        return imageFile;
     }
 
     private static Bitmap decodeBitmap(Context context, Uri theUri, int sampleSize) {
